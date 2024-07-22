@@ -64,13 +64,13 @@ ifdef_label = p.Word(p.alphanums + "_")
 ifdef_define = p.Combine(p.Keyword("#if defined") + p.Literal("(") + ifdef_label + p.Literal(")"))
 ifdef_end = p.Keyword("#endif")
 ifdef_define_values = p.Forward()
-ifdef_define_values = p.OneOrMore(ifdef_define)
+ifdef_define_values = p.ZeroOrMore(ifdef_define)
 ifdef_end_values = p.Forward()
-ifdef_end_values = p.OneOrMore(ifdef_end)
+ifdef_end_values = p.ZeroOrMore(ifdef_end)
 
-node_opener = p.Optional(ifdef_define_values) + p.Optional(label_creation) + node_handle + p.Literal("{").suppress()
+node_opener = ifdef_define_values + p.Optional(label_creation) + node_handle + p.Literal("{").suppress()
 node_reference_opener = reference + p.Literal("{").suppress()
-node_closer = p.Literal("}").suppress() + p.Literal(";").suppress() + p.Optional(ifdef_end_values)
+node_closer = p.Literal("}").suppress() + p.Literal(";").suppress() + ifdef_end_values
 node_definition = p.Forward()
 # pylint: disable=expression-not-assigned
 node_definition << (node_opener ^ node_reference_opener) + \

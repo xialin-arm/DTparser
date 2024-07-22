@@ -7,6 +7,8 @@ from itertools import chain
 from pydevicetree.source import grammar
 from pydevicetree.ast import *
 
+ifdef_stack = []
+
 def transformNode(string, location, tokens):
     """Transforms a ParseResult into a Node"""
     properties = [e for e in tokens.asList() if isinstance(e, Property)]
@@ -65,7 +67,15 @@ def transformString(string, location, token):
     return OneString(token)
 
 def transformIfdefMacro(string, location, tokens):
-    return Property("ifdef", PropertyValues(tokens.asList()))
+    tokenlist = tokens.asList()
+    for t in tokenlist:
+        ifdef_stack.append(t)
+    return Property("ifdef", PropertyValues(ifdef_stack.copy()))
+
+def transformIfdefEnd(string, location, tokens):
+    tokenlist = tokens.asList()
+    for t in tokenlist:
+        ifdef_stack.pop()
 
 def evaluateStrArithExpr(string, location, tokens):
     """Evaluates a ParseResult as a python expression"""
@@ -133,8 +143,9 @@ grammar.bytestring.setParseAction(transformBytestring)
 grammar.cell_array.setParseAction(transformCellArray)
 grammar.property_values.setParseAction(transformPropertyValues)
 grammar.label_raw.setParseAction(transformString)
-grammar.ifdef_label.setParseAction(transformString)
+#grammar.ifdef_label.setParseAction(transformIfdef)
 grammar.ifdef_define_values.setParseAction(transformIfdefMacro)
+grammar.ifdef_end_values.setParseAction(transformIfdefEnd)
 grammar.arith_str_expr.setParseAction(transformPropertyValues)
 
 def printTree(tree, level=0):
