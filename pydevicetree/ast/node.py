@@ -282,6 +282,12 @@ class Node:
                 return p.values
         return None
 
+    def has_field(self, field_name: str) -> bool:
+        for p in self.properties:
+            if p.name == field_name:
+                return True  
+        return False
+
     def get_field(self, field_name: str) -> Any:
         """Get the first value of a property"""
         fields = self.get_fields(field_name)

@@ -35,7 +35,6 @@ class COT:
         self.tree = Devicetree.parseFile(inputfile)
         self.output = outputfile
         self.input = inputfile
-        print(self.tree)
         # self.parse_ifdef()
         # self.assign_ifdef()
     
@@ -123,108 +122,146 @@ class COT:
             return []
         return pk.children
     
-    def validate_node(node:Node) -> bool:
+    def validate_cert(self, node:Node) -> bool:
         valid = True
+        if not node.has_field("image-id"):
+            valid = False
+        
+        if not node.has_field("root-certificate"):
+            if not node.has_field("parent"):
+                valid = False
 
-        return valid
-
-    def validate_nodes(nodes:list[Node]) -> bool:
-        valid = True
+        child = node.children
+        if child:
+            for c in child:
+                if not c.has_field("oid"):
+                    valid = False
 
         return valid
     
-    def images(self, filename, stack, ifdef):
-        braces = ["{"]
+    def validate_img(self, node:Node) -> bool:
+        valid = True
+        if not node.has_field("image-id"):
+            valid = False
+        
+        if not node.has_field("parent"):
+            valid = False
+        
+        if not node.has_field("hash"):
+            valid = False
 
-        reg = re.compile(r'([\w]+) *{')
-        imgNamereg = re.compile(r'([a-zA-Z0-9_]+)')
-        ifdefregex = re.compile(r'#if defined *\(([\w]+)\)')
-        ifdefend = "#endif"
+        return valid
 
+    def validate_nodes(self) -> bool:
+        valid = True
 
-        for line in filename:
-            match = reg.search(line)
-            match1 = imgNamereg.search(line)
+        certs = self.get_all_certificates()
+        images = self.get_all_images()
 
-            if match != None:
-                imageName = match.groups()[0]
-                ifdef[imageName] = stack.copy()
+        for n in certs:
+            node_valid = self.validate_cert(n)
+            valid = valid and node_valid
 
-            elif match1 != None:
-                imageName = match1.groups()[0]
-                peekNextLine = True
+        for i in images:
+            node_valid = self.validate_img(i)
+            valid = valid and node_valid
 
-            elif peekNextLine:
-                peekNextLine = False
-                if "{" in line:
-                    ifdef[imageName] = stack.copy()
+        print(valid)
 
-            match = ifdefregex.search(line)
-            if match != None:
-                stack.append(match.groups()[0])
+        return valid
+    
+    # def images(self, filename, stack, ifdef):
+    #     braces = ["{"]
 
-            if ifdefend in line:
-                stack.pop()
-
-            if parseBraces(line, braces):
-                return
-
-        return
-
-    def manifest(self, filename, stack, ifdef):
-        braces = ["{"]
-
-        reg = re.compile(r'([\w]+) *: *([\w]+)')
-        ifdefregex = re.compile(r'#if defined *\(([\w]+)\)')
-        ifdefend = "#endif"
+    #     reg = re.compile(r'([\w]+) *{')
+    #     imgNamereg = re.compile(r'([a-zA-Z0-9_]+)')
+    #     ifdefregex = re.compile(r'#if defined *\(([\w]+)\)')
+    #     ifdefend = "#endif"
 
 
-        for line in filename:
-            match = reg.search(line)
+    #     for line in filename:
+    #         match = reg.search(line)
+    #         match1 = imgNamereg.search(line)
 
-            if match != None:
-                imageName = match.groups()[0]
-                ifdef[imageName] = stack.copy()
+    #         if match != None:
+    #             imageName = match.groups()[0]
+    #             ifdef[imageName] = stack.copy()
 
-            match = ifdefregex.search(line)
-            if match != None:
-                stack.append(match.groups()[0])
+    #         elif match1 != None:
+    #             imageName = match1.groups()[0]
+    #             peekNextLine = True
 
-            if ifdefend in line:
-                stack.pop()
+    #         elif peekNextLine:
+    #             peekNextLine = False
+    #             if "{" in line:
+    #                 ifdef[imageName] = stack.copy()
 
-            if parseBraces(line, braces):
-                return
+    #         match = ifdefregex.search(line)
+    #         if match != None:
+    #             stack.append(match.groups()[0])
 
-        return
+    #         if ifdefend in line:
+    #             stack.pop()
 
-    def parse_ifdef(self):
-        ifdef = {}
-        stack = []
+    #         if parseBraces(line, braces):
+    #             return
 
-        filename = open(self.input)
+    #     return
 
-        ifdefregex = re.compile(r'#if defined *\(([\w]+)\)')
-        ifdefend = "#endif"
+    # def manifest(self, filename, stack, ifdef):
+    #     braces = ["{"]
 
-        for line in filename:
-            if "images" in line:
-                self.images(filename, stack, ifdef)
-                continue
+    #     reg = re.compile(r'([\w]+) *: *([\w]+)')
+    #     ifdefregex = re.compile(r'#if defined *\(([\w]+)\)')
+    #     ifdefend = "#endif"
 
-            if "manifests" in line:
-                self.manifest(filename, stack, ifdef)
-                continue
 
-            match = ifdefregex.search(line)
-            if match != None:
-                stack.append(match.groups()[0])
+    #     for line in filename:
+    #         match = reg.search(line)
 
-            if ifdefend in line:
-                stack.pop()
+    #         if match != None:
+    #             imageName = match.groups()[0]
+    #             ifdef[imageName] = stack.copy()
 
-        self.ifdef = ifdef
-        return
+    #         match = ifdefregex.search(line)
+    #         if match != None:
+    #             stack.append(match.groups()[0])
+
+    #         if ifdefend in line:
+    #             stack.pop()
+
+    #         if parseBraces(line, braces):
+    #             return
+
+    #     return
+
+    # def parse_ifdef(self):
+    #     ifdef = {}
+    #     stack = []
+
+    #     filename = open(self.input)
+
+    #     ifdefregex = re.compile(r'#if defined *\(([\w]+)\)')
+    #     ifdefend = "#endif"
+
+    #     for line in filename:
+    #         if "images" in line:
+    #             self.images(filename, stack, ifdef)
+    #             continue
+
+    #         if "manifests" in line:
+    #             self.manifest(filename, stack, ifdef)
+    #             continue
+
+    #         match = ifdefregex.search(line)
+    #         if match != None:
+    #             stack.append(match.groups()[0])
+
+    #         if ifdefend in line:
+    #             stack.pop()
+
+    #     self.ifdef = ifdef
+    #     return
     
     def extract_licence(self, f):
         licence = []
