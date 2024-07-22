@@ -200,6 +200,16 @@ class StringList(PropertyValues):
         """Format the list of strings in Devicetree Source format"""
         return ", ".join(wrapStrings(self.values))
 
+class OneString(PropertyValues):
+    def __init__(self, string: str):
+        PropertyValues.__init__(self, string)
+
+    def __repr__(self) -> str:
+        return "\"" + self.values.__repr__() + "\""
+    
+    def to_dts(self, formatHex: bool = False) -> str:
+        return super().to_dts(formatHex)
+
 class Property:
     """A Property is a key-value pair for a Devicetree Node
 

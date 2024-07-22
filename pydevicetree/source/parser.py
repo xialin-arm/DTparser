@@ -61,6 +61,22 @@ def transformStringList(string, location, tokens):
     """Transforms a ParseResult into a StringList"""
     return StringList(tokens.asList())
 
+def transformString(string, location, token):
+    return OneString(token)
+
+def transformIfdefMacro(string, location, tokens):
+    return Property("ifdef", PropertyValues(tokens.asList()))
+
+def evaluateStrArithExpr(string, location, tokens):
+    """Evaluates a ParseResult as a python expression"""
+    flat_tokens = list(chain.from_iterable(tokens.asList()))
+    for i, t in enumerate(flat_tokens):
+        if isinstance(t, int):
+            flat_tokens[i] = "(" + str(t) + ")"
+    expr = " ".join(str(t) for t in flat_tokens)
+    # pylint: disable=eval-used
+    return expr
+
 def transformBytestring(string, location, tokens):
     """Transforms a ParseResult into a Bytestring"""
     inttokens = []
@@ -116,6 +132,10 @@ grammar.stringlist.setParseAction(transformStringList)
 grammar.bytestring.setParseAction(transformBytestring)
 grammar.cell_array.setParseAction(transformCellArray)
 grammar.property_values.setParseAction(transformPropertyValues)
+grammar.label_raw.setParseAction(transformString)
+grammar.ifdef_label.setParseAction(transformString)
+grammar.ifdef_define_values.setParseAction(transformIfdefMacro)
+grammar.arith_str_expr.setParseAction(transformPropertyValues)
 
 def printTree(tree, level=0):
     """Helper function to print a bunch of elements as a tree"""

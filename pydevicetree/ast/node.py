@@ -72,6 +72,7 @@ class Node:
         self.properties = properties
         self.directives = directives
         self.children = children
+        self.ifdef = []
 
         for d in self.directives:
             if d.directive == "/delete-node/":
@@ -175,6 +176,7 @@ class Node:
         self.properties += other.properties
         self.directives += other.directives
         self.children += other.children
+        self.ifdef += other.ifdef
 
     def get_path(self, includeAddress: bool = True) -> str:
         """Get the path of a node (ex. /cpus/cpu@0)"""
