@@ -36,6 +36,13 @@ class COT:
         self.output = outputfile
         self.input = inputfile
 
+        # edge cases
+        certs = self.get_all_certificates()
+        for c in certs:
+            if self.if_root(c):
+                if not c.get_fields("signing-key"):
+                    c.properties.append(Property("signing-key", CellArray([LabelReference("subject_pk")])))
+
     def if_root(self, node:Node) -> bool:
         for p in node.properties:
             if p.name == "root-certificate":
@@ -56,10 +63,13 @@ class COT:
             
         return None
     
+    def extract_label(self, label) -> str:
+        return label[0].label.name
+    
     def get_auth_data(self, node:Node):
         return node.children
     
-    def format_auth_data_val(self, node:Node):
+    def format_auth_data_val(self, node:Node, cert:Node):
         type_desc = node.name
         if "sp_pkg" in type_desc:
             type_desc = removeNumber(type_desc)
@@ -68,6 +78,11 @@ class COT:
         if "pk" in type_desc:
             len = "(unsigned int)PK_DER_LEN"
         
+        # edge case
+        if not self.if_root(cert) and "key_cert" in cert.name:
+            if "content_pk" in ptr:
+                ptr = "content_pk_buf"
+
         return type_desc, ptr, len
 
     def get_node(self, nodes: list[Node], name: str) -> Node:
@@ -258,7 +273,7 @@ class COT:
             f.write("\t\t\t.type = AUTH_METHOD_SIG,\n")
             f.write("\t\t\t.param.sig = {\n")
 
-            f.write("\t\t\t\t.pk = &{},\n".format(sign))
+            f.write("\t\t\t\t.pk = &{},\n".format(self.extract_label(sign)))
             f.write("\t\t\t\t.sig = &sig,\n")
             f.write("\t\t\t\t.alg = &sig_alg,\n")
             f.write("\t\t\t\t.data = &raw_data\n")
@@ -270,8 +285,8 @@ class COT:
             f.write("\t\t\t.type = AUTH_METHOD_NV_CTR,\n")
             f.write("\t\t\t.param.nv_ctr = {\n")
 
-            f.write("\t\t\t\t.cert_nv_ctr = &{},\n".format(nv_ctr))
-            f.write("\t\t\t\t.plat_nv_ctr = &{}\n".format(nv_ctr))
+            f.write("\t\t\t\t.cert_nv_ctr = &{},\n".format(self.extract_label(nv_ctr)))
+            f.write("\t\t\t\t.plat_nv_ctr = &{}\n".format(self.extract_label(nv_ctr)))
             
             
             f.write("\t\t\t}\n")
@@ -284,7 +299,7 @@ class COT:
             f.write("\t.authenticated_data = (const auth_param_desc_t[COT_MAX_VERIFIED_PARAMS]) {\n")
 
             for i, d in enumerate(auth_data):
-                type_desc, ptr, data_len = self.format_auth_data_val(d)
+                type_desc, ptr, data_len = self.format_auth_data_val(d, node)
 
                 f.write("\t\t[{}] = {{\n".format(i))
                 f.write("\t\t\t.type_desc = &{},\n".format(type_desc))
@@ -377,7 +392,7 @@ class COT:
         for c in certs:
             auth_data = self.get_auth_data(c)
             for a in auth_data:
-                type_desc, ptr, data_len = self.format_auth_data_val(a)
+                type_desc, ptr, data_len = self.format_auth_data_val(a, c)
                 if ptr not in buffers:
                     buffers[ptr] = c.get_fields("ifdef")
 
@@ -446,7 +461,7 @@ class COT:
                 for i in ifdef:
                     f.write("{}\n".format(i))
 
-            f.write("\t[{}]	=	&{}{}\n".format(c.get_field("image-id"), c.name, ","))
+            f.write("\t[{}]	=	&{}{}\n".format(c.get_field("image-id").values[0], c.name, ","))
 
             if ifdef:
                 for i in ifdef:
@@ -458,7 +473,7 @@ class COT:
                 for i in ifdef:
                     f.write("{}\n".format(i))
 
-            f.write("\t[{}]	=	&{}{}\n".format(c.get_field("image-id"), c.name, "," if i != len(images) - 1 else ""))
+            f.write("\t[{}]	=	&{}{}\n".format(c.get_field("image-id").values[0], c.name, "," if i != len(images) - 1 else ""))
 
             if ifdef:
                 for i in ifdef:
